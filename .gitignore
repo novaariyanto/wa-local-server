@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+.wwebjs_auth/
+.wwebjs_cache/
+logs/
+config.json
+.env
+.idea/
+.vscode/
+*.log

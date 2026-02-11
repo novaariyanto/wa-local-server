@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Enterprise Monitor</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+
+    <div class="app-wrapper">
+        <div class="app-container">
+
+            <!-- LEFT SIDEBAR -->
+            <aside class="sidebar">
+                <header class="sidebar-header">
+                    <div class="user-avatar" id="header-avatar">
+                        <ion-icon name="server-outline"></ion-icon>
+                    </div>
+                    <div class="header-actions">
+                        <button class="icon-btn" id="btn-status" title="Connection Status">
+                            <span class="status-dot dot-gray" id="sidebar-status-dot"></span>
+                        </button>
+                    </div>
+                </header>
+
+                <div class="nav-list">
+                    <div class="nav-item active" data-view="dashboard">
+                        <div class="nav-avatar">
+                            <ion-icon name="speedometer-outline"></ion-icon>
+                        </div>
+                        <div class="nav-content">
+                            <div class="nav-top">
+                                <span class="nav-title">Monitor</span>
+                                <span class="nav-time" id="uptime-display">00:00</span>
+                            </div>
+                            <div class="nav-bottom">
+                                <span class="nav-subtitle">Realtime Dashboard</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="nav-item" data-view="activity">
+                        <div class="nav-avatar">
+                            <ion-icon name="list-outline"></ion-icon>
+                        </div>
+                        <div class="nav-content">
+                            <div class="nav-top">
+                                <span class="nav-title">Message Logs</span>
+                            </div>
+                            <div class="nav-bottom">
+                                <span class="nav-subtitle">Detailed Activity</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="nav-item" data-view="system">
+                        <div class="nav-avatar">
+                            <ion-icon name="terminal-outline"></ion-icon>
+                        </div>
+                        <div class="nav-content">
+                            <div class="nav-top">
+                                <span class="nav-title">System Logs</span>
+                            </div>
+                            <div class="nav-bottom">
+                                <span class="nav-subtitle">Debug & Errors</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <button id="btn-restart" class="wa-btn secondary w-full mb-2">
+                        <ion-icon name="refresh-outline"></ion-icon> Restart Service
+                    </button>
+                    <button id="btn-logout" class="wa-btn danger w-full">
+                        <ion-icon name="log-out-outline"></ion-icon> Logout
+                    </button>
+                </div>
+            </aside>
+
+            <!-- RIGHT MAIN PANEL -->
+            <main class="main-panel">
+
+                <!-- Main Header -->
+                <header class="main-header">
+                    <div class="chat-info">
+                        <div class="user-avatar small">
+                            <ion-icon name="globe-outline" id="main-icon"></ion-icon>
+                        </div>
+                        <div class="chat-details">
+                            <h2 id="view-title">Dashboard</h2>
+                            <span class="status-text" id="view-subtitle">Live Monitoring</span>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <div id="toast-container"></div>
+                    </div>
+                </header>
+
+                <!-- Content Area -->
+                <div class="content-area" id="main-content-area">
+
+                    <!-- View: Dashboard -->
+                    <div id="view-dashboard" class="view-section">
+
+                        <!-- Header Card -->
+                        <div class="card-panel header-card">
+                            <div class="row-between">
+                                <div>
+                                    <h1 id="db-device-name">Loading...</h1>
+                                    <div class="sub-text">
+                                        <span id="db-wa-name">--</span> • <span id="db-wa-number">--</span>
+                                    </div>
+                                </div>
+                                <div class="badge-group">
+                                    <span class="status-badge" id="badge-wa">WA: --</span>
+                                </div>
+                            </div>
+
+                            <!-- Connection Bars -->
+                            <div class="conn-bars mt-4">
+                                <div class="conn-item">
+                                    <div class="conn-label">WhatsApp Status</div>
+                                    <div class="conn-track">
+                                        <div class="conn-fill" id="bar-wa" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="conn-item">
+                                    <div class="conn-label">Manager Status</div>
+                                    <div class="conn-track">
+                                        <div class="conn-fill" id="bar-mgr" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="conn-item">
+                                    <div class="conn-label">Internet Status</div>
+                                    <div class="conn-track">
+                                        <div class="conn-fill" id="bar-net" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats Grid -->
+                        <div class="stats-grid-advanced">
+                            <div class="stat-card">
+                                <div class="stat-icon blue"><ion-icon name="send-outline"></ion-icon></div>
+                                <div class="stat-info">
+                                    <h3>Sent Today</h3>
+                                    <span class="stat-val" id="stat-sent-today">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon red"><ion-icon name="alert-circle-outline"></ion-icon></div>
+                                <div class="stat-info">
+                                    <h3>Failed Today</h3>
+                                    <span class="stat-val danger" id="stat-failed-today">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon green"><ion-icon name="calendar-outline"></ion-icon></div>
+                                <div class="stat-info">
+                                    <h3>This Month</h3>
+                                    <span class="stat-val" id="stat-month-sent">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon orange"><ion-icon name="time-outline"></ion-icon></div>
+                                <div class="stat-info">
+                                    <h3>Avg. Latency</h3>
+                                    <span class="stat-val" id="stat-latency">-- ms</span>
+                                </div>
+                            </div>
+
+                            <!-- System Resources -->
+                            <div class="stat-card mini">
+                                <h3>CPU Load</h3>
+                                <span class="stat-val small" id="stat-cpu">0%</span>
+                            </div>
+                            <div class="stat-card mini">
+                                <h3>Memory</h3>
+                                <span class="stat-val small" id="stat-mem">0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Recent Error -->
+                        <div class="card-panel error-card hidden" id="error-panel">
+                            <div class="error-icon"><ion-icon name="warning"></ion-icon></div>
+                            <div class="error-content">
+                                <h4>Last System Error</h4>
+                                <p id="last-error-msg">--</p>
+                                <span class="time-bad" id="last-error-time">--</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- View: Activity Table -->
+                    <div id="view-activity" class="view-section hidden">
+                        <div class="card-panel table-panel">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Job ID</th>
+                                        <th>To</th>
+                                        <th>Status</th>
+                                        <th>Info</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-activity-body">
+                                    <!-- Injected -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- View: System Logs -->
+                    <div id="view-system" class="view-section hidden">
+                        <div class="card-panel log-panel" id="logs-list">
+                            <!-- Logs -->
+                        </div>
+                    </div>
+
+                    <!-- View: QR Code (Overlay) -->
+                    <div id="view-qr" class="view-section hidden centered-view">
+                        <div class="wa-landing">
+                            <div class="qr-box">
+                                <canvas id="qr-canvas"></canvas>
+                                <div id="qr-loading">Generating New QR...</div>
+                            </div>
+                            <h1>Link Device</h1>
+                            <p>Open WhatsApp > Linked Devices > Scan QR</p>
+                            <div class="countdown" id="qr-countdown">Refreshing in 20s</div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Registration -->
+    <div id="view-register" class="modal-overlay hidden">
+        <div class="wa-modal">
+            <div class="modal-header">
+                <h2>Register Device</h2>
+            </div>
+            <div class="modal-body">
+                <input type="url" id="reg-manager-url" class="wa-input" placeholder="Manager URL">
+                <input type="text" id="reg-auth-code" class="wa-input" placeholder="Auth Code">
+                <input type="text" id="reg-device-name" class="wa-input" placeholder="Device Name" value="Office PC">
+                <p id="reg-error" class="error-text"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-register" class="wa-btn primary">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="modal-confirm" class="modal-overlay hidden">
+        <div class="wa-modal">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-confirm-cancel" class="wa-btn secondary">Cancel</button>
+                <button id="btn-confirm-ok" class="wa-btn primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>
