@@ -37,6 +37,10 @@ const schema = {
     registered: {
         type: 'boolean',
         default: false
+    },
+    api_port: {
+        type: 'number',
+        default: 3742
     }
 };
 

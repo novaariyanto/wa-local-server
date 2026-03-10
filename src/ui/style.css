@@ -182,8 +182,13 @@ body {
 /* Content Area */
 .content-area {
     flex: 1;
+    min-height: 0;
     padding: 24px;
     overflow-y: auto;
+}
+
+.view-section {
+    min-height: 100%;
 }
 
 /* Dashboard View */
@@ -389,11 +394,19 @@ body {
     border-bottom: none;
 }
 
+.data-table .text-green-600 { color: #059669; }
+.data-table .text-red-600 { color: #dc2626; }
+.data-table .text-blue-600 { color: #2563eb; }
+.data-table .text-amber-600 { color: #d97706; }
+.data-table .text-gray-500 { color: #6b7280; }
+.data-table .font-bold { font-weight: 700; }
+.data-table .font-medium { font-weight: 500; }
+
 /* Logs */
 .log-panel {
     font-family: monospace;
     font-size: 12px;
-    height: 100%;
+    min-height: 300px;
     overflow-y: auto;
     background: #111827;
     color: #e5e7eb;
@@ -534,6 +547,10 @@ body {
 
 .w-full {
     width: 100%;
+}
+
+.mt-2 {
+    margin-top: 8px;
 }
 
 .mt-4 {

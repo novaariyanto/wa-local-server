@@ -95,10 +95,18 @@ const heartbeat = async (waState, waNumber, waName) => {
             wa_name: waName
         });
     } catch (error) {
-        logger.error('Heartbeat failed:', error.message);
+        if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
+            logger.warn(`Heartbeat skipped: Backend service at ${client.defaults.baseURL} is offline or unreachable.`);
+        } else {
+            logger.error('Heartbeat failed:', error.message);
+        }
     }
 };
 
+/**
+ * Ambil job berikutnya dari manager (biasanya status pending).
+ * Mendukung berbagai format response: { id, to, message }, { data: {...} }, { job: {...} }, atau array.
+ */
 const getNextJob = async () => {
     const client = getClient();
     if (!client) return null;
@@ -106,17 +114,27 @@ const getNextJob = async () => {
     try {
         const instanceId = store.get('instance_id');
         const response = await client.get(`/api/jobs/next`, {
-            params: { instance_id: instanceId }
+            params: {
+                instance_id: instanceId,
+                status: 'pending' // Minta hanya job dengan status pending (jika backend mendukung)
+            }
         });
 
-        if (response.status === 200 && response.data) {
-            logger.debug(`Got job: ${response.data.id} for ${response.data.to}`);
-            return response.data;
+        if (response.status !== 200 || response.data == null) return null;
+
+        let job = response.data;
+        if (Array.isArray(job)) {
+            job = job.length ? job[0] : null;
+        } else if (job && (job.data != null || job.job != null)) {
+            job = job.data ?? job.job;
         }
-        return null;
+        if (!job || typeof job.id === 'undefined') return null;
+
+        logger.debug(`Got job #${job.id} for ${job.to} (pending → processing)`);
+        return job;
     } catch (error) {
-        if (error.response && error.response.status === 204) return null; // No jobs (204 No Content)
-        if (error.response && error.response.status === 404) return null; // No jobs
+        if (error.response && error.response.status === 204) return null;
+        if (error.response && error.response.status === 404) return null;
         if (error.response && error.response.status === 401) {
             logger.error('Unauthorized! Token may be invalid. Please re-register.');
         } else {
@@ -132,18 +150,19 @@ const updateJobStatus = async (jobId, status, result = null) => {
 
     try {
         const payload = { status };
-        if (result) {
+        if (result != null) {
             if (status === 'sent') {
-                payload.external_id = result.id?._serialized || result.id;
+                payload.external_id = result?.id?._serialized ?? result?.id ?? null;
             } else if (status === 'failed') {
-                payload.error = result.message || result;
+                const errMsg = typeof result === 'string' ? result : (result?.message ?? (result && String(result)));
+                payload.error = errMsg || 'Unknown error';
             }
         }
 
         await client.post(`/api/jobs/${jobId}/status`, payload);
+        logger.debug(`Job #${jobId} status updated to: ${status}`);
     } catch (error) {
-        logger.error(`Update job ${jobId} status failed:`, error.message);
-        // Maybe retry queue here?
+        logger.error(`Update job #${jobId} status to ${status} failed:`, error.message);
     }
 };
 

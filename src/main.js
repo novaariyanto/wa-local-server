@@ -7,11 +7,27 @@ const waService = require('./wa/whatsapp');
 const jobWorker = require('./worker/jobWorker');
 const { clearWhatsAppSession } = require('./utils/sessionCleaner');
 const statsManager = require('./utils/statsManager');
+const { createApiServer } = require('./api/server');
 const checkInternetConnected = require('check-internet-connected');
 const os = require('os-utils');
 
 let mainWindow;
 let tray;
+let apiServer = null;
+
+// Single Instance Lock
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    });
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -82,7 +98,8 @@ ipcMain.handle('get-config', () => {
         device_name: store.get('device_name'),
         registered: store.get('registered'),
         instance_id: store.get('instance_id'),
-        instance_key: store.get('instance_key')
+        instance_key: store.get('instance_key'),
+        api_port: store.get('api_port') || 3742
     };
 });
 
@@ -106,11 +123,28 @@ ipcMain.handle('stop-service', () => {
     return { success: true };
 });
 
+ipcMain.handle('generate-qr', async () => {
+    try {
+        await waService.stop();
+        // Add 3s delay to let Puppeteer/Chromium fully release file locks on Windows
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const userDataPath = app.getPath('userData');
+        await clearWhatsAppSession(path.join(userDataPath, 'wwebjs-auth'));
+        await clearWhatsAppSession(path.join(userDataPath, 'chrome-profile'));
+        waService.start();
+        return { success: true };
+    } catch (error) {
+        logger.error('Failed to generate new QR:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 ipcMain.handle('get-status', () => {
     return {
         serviceRunning: jobWorker.running,
         waStatus: waService.getStatus(),
-        stats: statsManager.getStats()
+        stats: statsManager.getStats(),
+        api_port: store.get('api_port') || 3742
     };
 });
 
@@ -120,7 +154,12 @@ ipcMain.handle('get-initial-data', () => {
             manager_url: store.get('manager_url'),
             device_name: store.get('device_name'),
             registered: store.get('registered'),
-            instance_id: store.get('instance_id')
+            instance_id: store.get('instance_id'),
+            polling: {
+                enabled: store.get('polling_enabled') !== undefined ? store.get('polling_enabled') : true,
+                interval: store.get('polling_interval') || 5000,
+                scheme: store.get('polling_scheme') || 'smart'
+            }
         },
         stats: statsManager.getStats(),
         status: {
@@ -138,9 +177,10 @@ ipcMain.handle('logout-reset', async () => {
         await waService.stop();
         jobWorker.stop();
 
-        // Clear WhatsApp session
+        // Clear WhatsApp session & chrome profile
         const userDataPath = app.getPath('userData');
-        await clearWhatsAppSession(userDataPath);
+        await clearWhatsAppSession(path.join(userDataPath, 'wwebjs-auth'));
+        await clearWhatsAppSession(path.join(userDataPath, 'chrome-profile'));
 
         // Clear store
         store.clear();
@@ -153,18 +193,65 @@ ipcMain.handle('logout-reset', async () => {
     }
 });
 
+ipcMain.handle('save-polling-config', async (event, data) => {
+    try {
+        store.set('polling_enabled', data.enabled);
+        store.set('polling_interval', data.interval);
+        store.set('polling_scheme', data.scheme);
+        // Terapkan ke job worker secara dinamis
+        jobWorker.updatePollingConfig(data);
+        return { success: true };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('test-send-message', async (event, { to, message }) => {
+    try {
+        const result = await waService.sendMessage(to, message);
+        return { success: true, result };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 function startServices() {
     waService.start();
     jobWorker.start();
+    startApiServer();
     startInternetCheck();
     startSystemMonitor();
 }
 
 function stopServices() {
+    stopApiServer();
     waService.stop();
     jobWorker.stop();
     stopInternetCheck();
     stopSystemMonitor();
+}
+
+function startApiServer() {
+    if (apiServer) return;
+    const port = store.get('api_port') || 3742;
+    apiServer = createApiServer(waService, () => process.uptime());
+    apiServer.on('error', (err) => {
+        logger.error('API server error:', err.message);
+    });
+    apiServer.listen(port, '127.0.0.1', () => {
+        logger.info(`API server listening on http://127.0.0.1:${port} (GET /health, POST /api/v1/send-text)`);
+    });
+}
+
+function stopApiServer() {
+    if (!apiServer) return Promise.resolve();
+    return new Promise((resolve) => {
+        apiServer.close(() => {
+            apiServer = null;
+            logger.info('API server stopped');
+            resolve();
+        });
+    });
 }
 
 let monitorInterval;
@@ -195,6 +282,9 @@ function stopSystemMonitor() {
 }
 
 // Job Worker Events
+jobWorker.on('job_pending', ({ job }) => {
+    if (mainWindow) mainWindow.webContents.send('activity-update', { type: 'job_pending', job });
+});
 jobWorker.on('job_start', (job) => {
     if (mainWindow) mainWindow.webContents.send('activity-update', { type: 'job_start', job });
 });
@@ -249,21 +339,36 @@ waService.on('qr', (qr) => {
 });
 
 waService.on('ready', (info) => {
+    logger.info(`WA Service Event: READY. Info: ${info.name} (${info.number})`);
     if (mainWindow) mainWindow.webContents.send('wa-ready', info);
     client.heartbeat('ready', info.number, info.name);
+    // Mulai polling hanya setelah WA ready
+    jobWorker.poll();
+});
+
+waService.on('authenticated', () => {
+    logger.info('WA Service Event: AUTHENTICATED');
+    if (mainWindow) mainWindow.webContents.send('wa-authenticated');
+});
+
+waService.on('loading_screen', (data) => {
+    if (mainWindow) mainWindow.webContents.send('wa-loading', data);
 });
 
 waService.on('auth_failure', (msg) => {
+    logger.error(`WA Service Event: AUTH_FAILURE. Message: ${msg}`);
     if (mainWindow) mainWindow.webContents.send('wa-auth-failure', msg);
     client.heartbeat('auth_failure', '', '');
 });
 
 waService.on('disconnected', (reason) => {
+    logger.warn(`WA Service Event: DISCONNECTED. Reason: ${reason}`);
     if (mainWindow) mainWindow.webContents.send('wa-disconnected', reason);
     client.heartbeat('disconnected', '', '');
 });
 
 // App lifecycle
 app.on('before-quit', async () => {
+    await stopApiServer();
     await waService.stop();
 });

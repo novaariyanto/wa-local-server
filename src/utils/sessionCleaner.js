@@ -1,22 +1,26 @@
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
 const logger = require('../logger');
 
 /**
- * Clear WhatsApp session data
- * This removes the .wwebjs_auth folder to force re-authentication
+ * Clear WhatsApp session data or Chrome Profile data
+ * This removes the passed directory forcefully
  */
-async function clearWhatsAppSession(userDataPath) {
+async function clearWhatsAppSession(targetPath) {
     try {
-        const sessionPath = path.join(userDataPath, '.wwebjs_auth');
+        if (fs.existsSync(targetPath)) {
+            logger.info(`Clearing directory at: ${targetPath}`);
 
-        if (fs.existsSync(sessionPath)) {
-            logger.info(`Clearing WhatsApp session at: ${sessionPath}`);
+            // Use built-in Node fs.promises.rm which has robust retry mechanism for Windows
+            await fsPromises.rm(targetPath, {
+                recursive: true,
+                force: true,
+                maxRetries: 10,
+                retryDelay: 1000
+            });
 
-            // Recursively delete directory
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-
-            logger.info('WhatsApp session cleared successfully');
+            logger.info('Directory cleared successfully');
             return true;
         } else {
             logger.info('No WhatsApp session found to clear');

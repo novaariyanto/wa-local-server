@@ -71,9 +71,41 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="nav-item" data-view="settings">
+                        <div class="nav-avatar">
+                            <ion-icon name="options-outline"></ion-icon>
+                        </div>
+                        <div class="nav-content">
+                            <div class="nav-top">
+                                <span class="nav-title">Settings</span>
+                            </div>
+                            <div class="nav-bottom">
+                                <span class="nav-subtitle">Configuration</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="nav-item" data-view="test">
+                        <div class="nav-avatar">
+                            <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                        </div>
+                        <div class="nav-content">
+                            <div class="nav-top">
+                                <span class="nav-title">Test Send</span>
+                            </div>
+                            <div class="nav-bottom">
+                                <span class="nav-subtitle">Manual Message</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="sidebar-footer">
+                    <button id="btn-generate-qr" class="wa-btn primary w-full mb-2 hidden">
+                        <ion-icon name="qr-code-outline"></ion-icon> Generate QR
+                    </button>
                     <button id="btn-restart" class="wa-btn secondary w-full mb-2">
                         <ion-icon name="refresh-outline"></ion-icon> Restart Service
                     </button>
@@ -143,6 +175,7 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="sub-text mt-2" id="polling-status-text">Polling: --</div>
                         </div>
 
                         <!-- Stats Grid -->
@@ -219,10 +252,77 @@
                         </div>
                     </div>
 
+                    <!-- View: Settings -->
+                    <div id="view-settings" class="view-section hidden">
+                        <div class="card-panel">
+                            <h3
+                                style="margin-bottom: 20px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                Polling Configuration</h3>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; font-weight: 500;">
+                                    <input type="checkbox" id="setting-polling-enabled"
+                                        style="width: 18px; height: 18px; margin-right: 10px;">
+                                    Enable Background Polling
+                                </label>
+                                <p style="font-size: 13px; color: #64748b; margin-top: 5px; margin-left: 28px;">If
+                                    disabled, the app will not check the server for new messages to send.</p>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Idle Polling
+                                    Interval (ms)</label>
+                                <input type="number" id="setting-polling-interval" class="wa-input"
+                                    style="max-width: 250px;" min="1000" step="1000">
+                                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">How often to ping the
+                                    server when there are no messages in the queue (Default: 5000ms).</p>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 25px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Polling
+                                    Scheme</label>
+                                <select id="setting-polling-scheme" class="wa-input"
+                                    style="max-width: 250px; background-color: #fff;">
+                                    <option value="smart">Smart (Dynamic Speedup)</option>
+                                    <option value="fixed">Fixed (Constant Interval)</option>
+                                </select>
+                                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">
+                                    <b>Smart:</b> Will temporarily accelerate polling to 500ms while processing a batch
+                                    of messages, then return to idle interval.<br>
+                                    <b>Fixed:</b> Strictly adheres to the idle interval setting, even when processing a
+                                    backlogged queue.
+                                </p>
+                            </div>
+
+                            <button id="btn-save-settings" class="wa-btn primary">
+                                <ion-icon name="save-outline"></ion-icon> Save Configuration
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- View: System Logs -->
                     <div id="view-system" class="view-section hidden">
                         <div class="card-panel log-panel" id="logs-list">
                             <!-- Logs -->
+                        </div>
+                    </div>
+
+                    <!-- View: Test Send -->
+                    <div id="view-test" class="view-section hidden">
+                        <div class="card-panel">
+                            <h3 style="margin-bottom: 20px; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">Test Send Message</h3>
+                            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Kirim pesan uji ke nomor WhatsApp (format: 62xxxxxxxxxx).</p>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Nomor Tujuan</label>
+                                <input type="text" id="test-send-to" class="wa-input" placeholder="62xxxxxxxxxx" style="max-width: 280px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Pesan</label>
+                                <textarea id="test-send-msg" class="wa-input" placeholder="Tulis pesan uji..." rows="4" style="resize: vertical; min-height: 80px;"></textarea>
+                            </div>
+                            <button id="btn-test-send" class="wa-btn primary">
+                                <ion-icon name="send-outline"></ion-icon> Send Message
+                            </button>
                         </div>
                     </div>
 
@@ -251,9 +351,32 @@
                 <h2>Register Device</h2>
             </div>
             <div class="modal-body">
-                <input type="url" id="reg-manager-url" class="wa-input" placeholder="Manager URL">
-                <input type="text" id="reg-auth-code" class="wa-input" placeholder="Auth Code">
-                <input type="text" id="reg-device-name" class="wa-input" placeholder="Device Name" value="Office PC">
+                <div style="margin-bottom: 15px;">
+                    <label
+                        style="display:block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #374151;">1.
+                        Manager URL</label>
+                    <input type="url" id="reg-manager-url" class="wa-input" placeholder="Manager URL"
+                        value="https://chrome.ebilling.id">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label
+                        style="display:block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #374151;">2.
+                        Auth Code</label>
+                    <p style="font-size:12px; color:#6b7280; margin: 0 0 8px 0; line-height: 1.4;">Buka <b
+                            style="user-select: all;">https://chrome.ebilling.id/instances</b> lalu klik <b>Generate
+                            Activation Code</b>. Dapatkan 6 karakter token untuk diisi di bawah ini.</p>
+                    <input type="text" id="reg-auth-code" class="wa-input" placeholder="Contoh: X7K9P2" maxlength="6">
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label
+                        style="display:block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #374151;">3.
+                        Nama Device / PC</label>
+                    <input type="text" id="reg-device-name" class="wa-input" placeholder="Contoh: PC Kasir 1"
+                        value="Office PC">
+                </div>
+
                 <p id="reg-error" class="error-text"></p>
             </div>
             <div class="modal-footer">
